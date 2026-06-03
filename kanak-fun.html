@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌴 Kanak Quest!</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --purple: #7c3aed; --green: #059669; --orange: #ea580c;
+  --blue: #2563eb; --pink: #e11d48; --yellow: #f59e0b;
+  --bg: #0f0e17; --card: #1a1830; --card2: #221f3a;
+}
+body { font-family: 'Nunito', sans-serif; background: var(--bg); color: #fff; min-height: 100vh; overflow-x: hidden; }
+#starCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+.app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
+
+/* HERO */
+.hero { text-align: center; padding: 40px 20px 28px; animation: heroIn 0.8s cubic-bezier(.22,1,.36,1) both; }
+@keyframes heroIn { from { opacity:0; transform:translateY(-40px) scale(0.9); } to { opacity:1; transform:none; } }
+.hero-badge { display:inline-block; background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-family:'Fredoka One',cursive; font-size:0.8rem; letter-spacing:3px; text-transform:uppercase; padding:5px 18px; border-radius:50px; margin-bottom:16px; animation:badgePulse 2s ease-in-out infinite; }
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 50%{box-shadow:0 0 0 10px rgba(239,68,68,0)} }
+.hero h1 { font-family:'Fredoka One',cursive; font-size:clamp(2.4rem,7vw,4rem); line-height:1; margin-bottom:10px; background:linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.hero p { color:#94a3b8; font-size:1rem; font-weight:600; max-width:400px; margin:0 auto 20px; line-height:1.5; }
+.score-bar { display:flex; justify-content:center; gap:14px; flex-wrap:wrap; }
+.score-pill { background:var(--card2); border:2px solid #2d2b4e; border-radius:50px; padding:8px 18px; font-weight:800; font-size:0.88rem; display:flex; align-items:center; gap:7px; }
+.score-pill .val { font-family:'Fredoka One',cursive; font-size:1.3rem; color:#f59e0b; transition:transform 0.3s; }
+.score-pill .val.bump { animation:bump 0.4s ease; }
+@keyframes bump { 0%,100%{transform:scale(1)} 50%{transform:scale(1.5)} }
+
+/* TABS */
+.tabs { display:flex; gap:8px; margin:22px 0 14px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab-btn { flex-shrink:0; background:var(--card2); border:2px solid #2d2b4e; color:#94a3b8; border-radius:12px; padding:10px 18px; font-family:'Nunito',sans-serif; font-weight:800; font-size:0.85rem; cursor:pointer; transition:all 0.2s; }
+.tab-btn:hover { border-color:#8b5cf6; color:white; }
+.tab-btn.active { background:linear-gradient(135deg,#7c3aed,#a855f7); border-color:transparent; color:white; box-shadow:0 4px 15px rgba(124,58,237,0.4); }
+
+/* PANELS */
+.panel { display:none; animation:panelIn 0.4s ease both; }
+.panel.active { display:block; }
+@keyframes panelIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+.section-label { font-family:'Fredoka One',cursive; font-size:1.05rem; color:#8b5cf6; letter-spacing:2px; text-transform:uppercase; margin:22px 0 12px; display:flex; align-items:center; gap:8px; }
+.section-label::after { content:''; flex:1; height:2px; background:#2d2b4e; }
+
+/* FLASHCARDS */
+.flashcard-wrap { perspective:1000px; margin:16px auto; max-width:480px; height:240px; cursor:pointer; }
+.flashcard { width:100%; height:100%; position:relative; transform-style:preserve-3d; transition:transform 0.6s cubic-bezier(.22,1,.36,1); }
+.flashcard.flipped { transform:rotateY(180deg); }
+.card-face { position:absolute; inset:0; border-radius:24px; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px; backface-visibility:hidden; -webkit-backface-visibility:hidden; text-align:center; }
+.card-front { background:linear-gradient(135deg,#1e1b4b,#312e81); border:2px solid #4c1d95; box-shadow:0 8px 32px rgba(124,58,237,0.3); }
+.card-back { background:linear-gradient(135deg,#064e3b,#065f46); border:2px solid #047857; box-shadow:0 8px 32px rgba(5,150,105,0.3); transform:rotateY(180deg); }
+.card-front .word { font-family:'Fredoka One',cursive; font-size:2.2rem; color:#c4b5fd; margin-bottom:8px; }
+.card-front .hint { color:#6d6a99; font-size:0.85rem; font-weight:600; }
+.card-back .cb-emoji { font-size:2.8rem; margin-bottom:10px; }
+.card-back .meaning { font-size:1.1rem; font-weight:800; color:#a7f3d0; margin-bottom:6px; }
+.card-back .example { font-size:0.82rem; color:#6ee7b7; font-style:italic; line-height:1.5; white-space:pre-line; }
+.flip-hint { text-align:center; color:#4c4a6e; font-size:0.82rem; font-weight:700; margin-top:10px; letter-spacing:1px; text-transform:uppercase; animation:blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:0.4} 50%{opacity:1} }
+.fc-nav { display:flex; justify-content:center; align-items:center; gap:20px; margin-top:16px; }
+.fc-btn { background:var(--card2); border:2px solid #2d2b4e; color:white; border-radius:50%; width:44px; height:44px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; }
+.fc-btn:hover { background:#312e81; border-color:#8b5cf6; transform:scale(1.1); }
+.fc-counter { font-family:'Fredoka One',cursive; font-size:1.1rem; color:#94a3b8; min-width:60px; text-align:center; }
+
+/* QUIZ */
+.quiz-progress { display:flex; gap:6px; margin-bottom:20px; }
+.qp-dot { flex:1; height:6px; border-radius:3px; background:#2d2b4e; transition:background 0.3s; }
+.qp-dot.done { background:#10b981; }
+.qp-dot.wrong-dot { background:#ef4444; }
+.qp-dot.current { background:#8b5cf6; animation:currentPulse 1s ease-in-out infinite; }
+@keyframes currentPulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+.quiz-card { background:var(--card); border:2px solid #2d2b4e; border-radius:22px; padding:28px; margin-bottom:16px; }
+.quiz-question { font-family:'Fredoka One',cursive; font-size:1.5rem; color:#e2e8f0; margin-bottom:8px; line-height:1.3; }
+.quiz-sub { font-size:0.85rem; color:#64748b; margin-bottom:22px; font-style:italic; }
+.quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media(max-width:500px){ .quiz-options{grid-template-columns:1fr;} }
+.quiz-opt { background:var(--card2); border:2.5px solid #2d2b4e; color:#e2e8f0; border-radius:14px; padding:14px 18px; font-family:'Nunito',sans-serif; font-weight:700; font-size:0.9rem; cursor:pointer; text-align:left; transition:all 0.2s; line-height:1.4; }
+.quiz-opt:hover:not(:disabled) { border-color:#8b5cf6; background:#2d2b4e; transform:translateY(-2px); }
+.quiz-opt.correct { background:#065f46; border-color:#10b981; color:#a7f3d0; animation:correctFlash 0.5s ease; }
+.quiz-opt.wrong { background:#7f1d1d; border-color:#ef4444; color:#fca5a5; animation:shake 0.4s ease; }
+@keyframes correctFlash { 0%,100%{transform:scale(1)} 40%{transform:scale(1.04)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+.quiz-feedback { margin-top:16px; padding:14px 18px; border-radius:14px; font-weight:700; font-size:0.92rem; line-height:1.5; display:none; }
+.quiz-feedback.show { display:block; animation:panelIn 0.3s ease; }
+.quiz-feedback.good { background:#064e3b; border:2px solid #10b981; color:#a7f3d0; }
+.quiz-feedback.bad { background:#450a0a; border:2px solid #ef4444; color:#fca5a5; }
+.next-btn { display:none; margin:14px auto 0; background:linear-gradient(135deg,#7c3aed,#a855f7); color:white; border:none; border-radius:50px; padding:12px 32px; font-family:'Fredoka One',cursive; font-size:1.1rem; cursor:pointer; box-shadow:0 4px 20px rgba(124,58,237,0.4); transition:all 0.2s; }
+.next-btn:hover { transform:scale(1.05); }
+.next-btn.show { display:block; animation:panelIn 0.4s ease 0.2s both; }
+.gameover { background:var(--card); border:2px solid #312e81; border-radius:22px; padding:36px 28px; text-align:center; animation:panelIn 0.5s ease; }
+.gameover .big-emoji { font-size:4rem; margin-bottom:16px; display:block; animation:bounce2 0.8s ease infinite; }
+@keyframes bounce2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+.gameover h2 { font-family:'Fredoka One',cursive; font-size:2rem; margin-bottom:8px; background:linear-gradient(135deg,#f59e0b,#ec4899); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.gameover .score-reveal { font-family:'Fredoka One',cursive; font-size:3.5rem; color:#f59e0b; margin:10px 0; }
+.gameover p { color:#94a3b8; font-size:0.95rem; margin-bottom:20px; }
+.restart-btn { background:linear-gradient(135deg,#7c3aed,#ec4899); color:white; border:none; border-radius:50px; padding:14px 36px; font-family:'Fredoka One',cursive; font-size:1.2rem; cursor:pointer; box-shadow:0 6px 24px rgba(124,58,237,0.4); transition:all 0.2s; }
+.restart-btn:hover { transform:scale(1.05); }
+
+/* EXPLORER */
+.explorer-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:20px; }
+.explorer-card { background:var(--card); border:2px solid #2d2b4e; border-radius:18px; padding:20px; cursor:pointer; transition:all 0.25s; position:relative; overflow:hidden; }
+.explorer-card:hover { transform:translateY(-4px); border-color:var(--accent-color,#8b5cf6); box-shadow:0 8px 24px rgba(0,0,0,0.3); }
+.ec-emoji { font-size:2.4rem; margin-bottom:10px; display:block; }
+.ec-word { font-family:'Fredoka One',cursive; font-size:1.15rem; color:#e2e8f0; margin-bottom:4px; }
+.ec-def { font-size:0.82rem; color:#64748b; font-weight:600; line-height:1.4; }
+.ec-tag { display:inline-block; font-size:0.7rem; font-weight:800; padding:2px 8px; border-radius:50px; margin-top:8px; text-transform:uppercase; letter-spacing:1px; }
+
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity 0.3s; backdrop-filter:blur(4px); }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:#1a1830; border:2px solid #312e81; border-radius:24px; padding:32px; max-width:480px; width:100%; transform:scale(0.9) translateY(20px); transition:all 0.3s cubic-bezier(.22,1,.36,1); box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+.modal-overlay.open .modal { transform:none; }
+.modal-emoji { font-size:3rem; text-align:center; display:block; margin-bottom:12px; }
+.modal h3 { font-family:'Fredoka One',cursive; font-size:1.6rem; color:#c4b5fd; text-align:center; margin-bottom:6px; }
+.modal-gloss { text-align:center; color:#64748b; font-size:0.85rem; font-style:italic; margin-bottom:18px; line-height:1.5; }
+.modal-examples { display:flex; flex-direction:column; gap:10px; }
+.modal-ex { background:#221f3a; border-left:4px solid #8b5cf6; border-radius:0 12px 12px 0; padding:12px 14px; }
+.modal-ex .kw { font-family:'Fredoka One',cursive; font-size:1rem; color:#a5b4fc; }
+.modal-ex .mg { font-size:0.78rem; color:#64748b; font-style:italic; margin:2px 0; }
+.modal-ex .tr { font-size:0.88rem; color:#e2e8f0; font-weight:700; }
+.close-modal { display:block; margin:20px auto 0; background:transparent; border:2px solid #312e81; color:#94a3b8; border-radius:50px; padding:8px 24px; font-family:'Nunito',sans-serif; font-weight:800; cursor:pointer; transition:all 0.2s; }
+.close-modal:hover { border-color:#8b5cf6; color:white; }
+
+/* CONFETTI */
+.confetti-piece { position:fixed; pointer-events:none; z-index:999; animation:confettiFall var(--dur,1.5s) ease-in var(--delay,0s) forwards; }
+@keyframes confettiFall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(100vh) rotate(720deg);opacity:0} }
+
+/* TOAST */
+.streak-toast { position:fixed; top:24px; left:50%; transform:translateX(-50%) translateY(-80px); background:linear-gradient(135deg,#f59e0b,#ef4444); color:white; font-family:'Fredoka One',cursive; font-size:1.1rem; padding:10px 24px; border-radius:50px; box-shadow:0 8px 30px rgba(245,158,11,0.5); z-index:200; transition:transform 0.4s cubic-bezier(.22,1,.36,1); pointer-events:none; }
+.streak-toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<canvas id="starCanvas"></canvas>
+<div class="streak-toast" id="streakToast">🔥 Combo x<span id="comboNum">2</span>!</div>
+<div class="modal-overlay" id="modalOverlay"><div class="modal" id="modalContent"></div></div>
+
+<div class="app">
+  <div class="hero">
+    <div class="hero-badge">🌴 Langue Kanak</div>
+    <h1>Kanak Quest!</h1>
+    <p>Maîtrise les classificateurs, les multiples et la fréquence en t'amusant !</p>
+    <div class="score-bar">
+      <div class="score-pill">⭐ <span>Score</span> <span class="val" id="scoreVal">0</span></div>
+      <div class="score-pill">🔥 <span>Combo</span> <span class="val" id="comboVal">0</span></div>
+      <div class="score-pill">❤️ <span class="val" id="livesVal">3</span> <span>vies</span></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('flashcards',this)">🃏 Flashcards</button>
+    <button class="tab-btn" onclick="switchTab('quiz',this)">🎯 Quiz</button>
+    <button class="tab-btn" onclick="switchTab('explorer',this)">🗺️ Explorer</button>
+  </div>
+
+  <!-- FLASHCARDS -->
+  <div class="panel active" id="panel-flashcards">
+    <div class="section-label">🃏 Retourne les cartes pour apprendre</div>
+    <div class="flashcard-wrap" onclick="flipCard()">
+      <div class="flashcard" id="flashcard">
+        <div class="card-face card-front">
+          <div class="word" id="fcWord"></div>
+          <div class="hint" id="fcHint"></div>
+        </div>
+        <div class="card-face card-back">
+          <div class="cb-emoji" id="fcEmoji"></div>
+          <div class="meaning" id="fcMeaning"></div>
+          <div class="example" id="fcExample"></div>
+        </div>
+      </div>
+    </div>
+    <div class="flip-hint">👆 Clique pour retourner</div>
+    <div class="fc-nav">
+      <button class="fc-btn" onclick="prevCard()">◀</button>
+      <div class="fc-counter" id="fcCounter">1 / 8</div>
+      <button class="fc-btn" onclick="nextCard()">▶</button>
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div class="panel" id="panel-quiz">
+    <div class="section-label">🎯 Teste tes connaissances</div>
+    <div id="quizArea"></div>
+  </div>
+
+  <!-- EXPLORER -->
+  <div class="panel" id="panel-explorer">
+    <div class="section-label">🗺️ Explore les classificateurs</div>
+    <div class="explorer-grid" id="explorerGrid"></div>
+    <div class="section-label">🔢 Préfixe AU- : fréquence</div>
+    <div class="explorer-grid" id="auGrid"></div>
+  </div>
+</div>
+
+<script>
+// ===== STARS =====
+(function(){
+  const c = document.getElementById('starCanvas');
+  c.width = window.innerWidth; c.height = window.innerHeight;
+  const ctx = c.getContext('2d');
+  for(let i=0;i<120;i++){
+    ctx.beginPath();
+    ctx.arc(Math.random()*c.width, Math.random()*c.height, Math.random()*1.5+0.3, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.5+0.1})`;
+    ctx.fill();
+  }
+})();
+
+// ===== DATA =====
+const flashcards = [
+  {word:'wa-neda ?',hint:'Classificateur interrogatif',emoji:'⛵',meaning:'« Combien ? » — objets longs',example:'wameda wany na bwa on ?\n"Combien de bateaux sur la plage ?"'},
+  {word:'neya-neda ?',hint:'Classificateur interrogatif',emoji:'🎋',meaning:'« Combien ? » — morceaux/portions allongés',example:'neya-neda neya-ga ?\n"Combien de morceaux de bambou ?"'},
+  {word:'fhâa-neda ?',hint:'Classificateur interrogatif',emoji:'🪵',meaning:'« Combien ? » — charges, fagots',example:'fhâa-neda fhâ-ciic ?\n"Combien de fagots de bois ?"'},
+  {word:'pwaneda ?',hint:'Interrogatif neutre',emoji:'🌞',meaning:'Interrogatif neutre — remplace les autres',example:'pwaneda shêlâ-at ?\n"Quelle heure est-il ?"'},
+  {word:'au-',hint:'Préfixe de fréquence',emoji:'🔁',meaning:'Fréquence / répétition — "fois"',example:'au-xan = trois fois\nau-neda ? = combien de fois ?'},
+  {word:'au-xan',hint:'Fréquence numérale',emoji:'3️⃣',meaning:'Trois fois',example:'ku au-xan fâàla-m\n"Tu as fait le chemin trois fois"'},
+  {word:'(h)na',hint:'Morphème locatif',emoji:'📍',meaning:'Lieu + temps + processus (nominalise un verbe)',example:'hna hmwalixa-n\n= "le fait de voyager"'},
+  {word:'au-xoxo ?',hint:'Fréquence quantificateur',emoji:'🔥',meaning:'Beaucoup de fois / souvent ?',example:'au-xoxo hna hmwalixa-n ?\n"As-tu souvent fait le voyage ?"'},
+];
+
+const quizQ = [
+  {q:'pwaneda shêlâ-at ?',sub:'Que signifie cette phrase ?',opts:['Combien de fois ?','Quelle heure est-il ?','Combien de bateaux ?','Combien de fagots ?'],ans:1,fb:'✅ pwaneda = interrogatif neutre. shêlâ-at = signe-soleil → "Quelle heure est-il ?"'},
+  {q:'Quel classificateur pour des OBJETS LONGS ?',sub:'Choisis le bon classificateur',opts:['neya-neda ?','fhâa-neda ?','wa-neda ?','au-neda ?'],ans:2,fb:'✅ wa-neda ? est le classificateur pour les objets longs (bateaux, arbres…)'},
+  {q:'ku au-xan fâàla-m',sub:'Combien de fois ?',opts:['Une fois','Deux fois','Trois fois','Beaucoup de fois'],ans:2,fb:'✅ au-xan = "trois fois". au- = fois / xan = trois !'},
+  {q:'Que fait le morphème (h)na ?',sub:'Rôle grammatical',opts:['Il compte les objets','Il nominalise un groupe verbal','Il marque le pluriel','Il indique le passé'],ans:1,fb:'✅ (h)na nominalise un verbe, exprimant processus + lieu/temps.'},
+  {q:'neya-neda neya-ga ?',sub:'Que demande-t-on ?',opts:['Combien de bateaux ?','Combien de fagots ?','Combien de morceaux de bambou ?','Combien de voyages ?'],ans:2,fb:'✅ neya-neda = combien de morceaux ? / neya-ga = morceau-bambou'},
+  {q:'au-xoxo hna hmwalixa-n ?',sub:'Traduction correcte ?',opts:['Combien de bateaux ?','As-tu souvent fait le voyage ?','Trois fois le chemin ?','Quelle heure est-il ?'],ans:1,fb:'✅ au-xoxo = plusieurs fois / hna = locatif / hmwalixa-n = voyage'},
+  {q:'Comment dit-on "deux fois" ?',sub:'Préfixe au- + numéral',opts:['au-xan','au-ena','au-me','au-neda'],ans:2,fb:'✅ au-me ! au- = fois, me = deux. Logique !'},
+  {q:'fhâa-neda s\'utilise pour…',sub:'Quel type d\'objet ?',opts:['Des fruits','Des charges et fagots','Des personnes','Des lieux'],ans:1,fb:'✅ fhâa = charge/fagot. fhâa-neda ? = "combien de fagots ?"'},
+];
+
+const explorerData = [
+  {emoji:'⛵',word:'wa-neda ?',def:'« combien ? » — objets longs (bateaux, arbres…)',color:'#7c3aed',tag:'classificateur',tagBg:'#4c1d95',tagFg:'#c4b5fd',
+   examples:[{kw:'wameda wany na bwa on ?',mg:'combien? bateau LOC sur plage',tr:'« Combien de bateaux y a-t-il sur la plage ? »'}]},
+  {emoji:'🎋',word:'neya-neda ?',def:'« combien ? » — morceaux, portions allongés',color:'#059669',tag:'classificateur',tagBg:'#064e3b',tagFg:'#a7f3d0',
+   examples:[{kw:'neya-neda neya-ga ?',mg:'morceau-combien? morceau-bambou',tr:'« Combien de morceaux de bambou ? »'}]},
+  {emoji:'🪵',word:'fhâa-neda ?',def:'« combien ? » — charges, fagots de bois',color:'#ea580c',tag:'classificateur',tagBg:'#431407',tagFg:'#fed7aa',
+   examples:[{kw:'fhâa-neda fhâ-ciic ?',mg:'charge-combien? charge-bois',tr:'« Combien de fagots de bois ? »'}]},
+  {emoji:'🌞',word:'pwaneda ?',def:'Interrogatif neutre — remplace les classificateurs spécialisés',color:'#f59e0b',tag:'neutre',tagBg:'#451a03',tagFg:'#fde68a',
+   examples:[{kw:'pwaneda shêlâ-at ?',mg:'fruit-combien? signe-soleil',tr:'« Quelle heure est-il ? »'},{kw:'pwaneda shêlâ-ar-i na ?',mg:'fruit-combien? signe-soleil-REL 1SG',tr:'« Combien de temps me faut-il ? »'}]},
+  {emoji:'📍',word:'(h)na',def:'Morphème locatif — nominalise un groupe verbal (processus + lieu/temps)',color:'#e11d48',tag:'morphème',tagBg:'#4c0519',tagFg:'#fecdd3',
+   examples:[{kw:'hmwalixa-n → hna hmwalixa-n',mg:'voyage → LOC voyage',tr:'« il fait le voyage » → « le fait de voyager »'},{kw:'au-xoxo hna hmwalixa-n ?',mg:'fois-plusieurs LOC voyage-POSS.3SG',tr:'« As-tu souvent fait le voyage ? »'}]},
+];
+
+const auData = [
+  {emoji:'1️⃣',word:'au-ena ?',def:'Une fois ?',color:'#6d28d9'},
+  {emoji:'2️⃣',word:'au-me ?',def:'Deux fois ?',color:'#7c3aed'},
+  {emoji:'3️⃣',word:'au-xan',def:'Trois fois',color:'#8b5cf6'},
+  {emoji:'❓',word:'au-neda ?',def:'Combien de fois ? (neutre)',color:'#059669'},
+  {emoji:'🔥',word:'au-xoxo ?',def:'Beaucoup de fois ?',color:'#dc2626'},
+  {emoji:'💥',word:'au-khoxo ?',def:'Beaucoup beaucoup de fois ?',color:'#b91c1c'},
+  {emoji:'📅',word:'au-yo ?',def:'Souvent ?',color:'#0284c7'},
+  {emoji:'⚡',word:'au-yo-xoxo ?',def:'Très souvent ?',color:'#0369a1'},
+];
+
+// ===== STATE =====
+let score=0, combo=0, lives=3;
+let fcIndex=0, fcFlipped=false;
+let quizIndex=0, quizDone=false, quizResults=[];
+
+// ===== TABS =====
+function switchTab(name, btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='quiz' && !quizDone) renderQuiz();
+  if(name==='explorer') renderExplorer();
+}
+
+// ===== FLASHCARDS =====
+function renderFlashcard(){
+  const fc = flashcards[fcIndex];
+  document.getElementById('fcWord').textContent = fc.word;
+  document.getElementById('fcHint').textContent = fc.hint;
+  document.getElementById('fcEmoji').textContent = fc.emoji;
+  document.getElementById('fcMeaning').textContent = fc.meaning;
+  document.getElementById('fcExample').textContent = fc.example;
+  document.getElementById('fcCounter').textContent = (fcIndex+1)+' / '+flashcards.length;
+  fcFlipped = false;
+  document.getElementById('flashcard').classList.remove('flipped');
+}
+function flipCard(){ fcFlipped=!fcFlipped; document.getElementById('flashcard').classList.toggle('flipped',fcFlipped); }
+function nextCard(){ fcIndex=(fcIndex+1)%flashcards.length; renderFlashcard(); }
+function prevCard(){ fcIndex=(fcIndex-1+flashcards.length)%flashcards.length; renderFlashcard(); }
+renderFlashcard();
+
+// ===== QUIZ =====
+function renderQuiz(){
+  if(quizIndex>=quizQ.length){ renderGameOver(); return; }
+  const q = quizQ[quizIndex];
+  const dots = quizQ.map((_,i)=>{
+    let cls = i<quizIndex?(quizResults[i]?'qp-dot done':'qp-dot wrong-dot'):i===quizIndex?'qp-dot current':'qp-dot';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+  document.getElementById('quizArea').innerHTML = `
+    <div class="quiz-progress">${dots}</div>
+    <div class="quiz-card">
+      <div class="quiz-question">${q.q}</div>
+      <div class="quiz-sub">${q.sub}</div>
+      <div class="quiz-options">
+        ${q.opts.map((o,i)=>`<button class="quiz-opt" onclick="answerQuiz(${i})">${o}</button>`).join('')}
+      </div>
+      <div class="quiz-feedback" id="quizFeedback"></div>
+    </div>
+    <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Suivant →</button>`;
+}
+
+function answerQuiz(chosen){
+  if(document.querySelectorAll('.quiz-opt[disabled]').length) return;
+  const q = quizQ[quizIndex];
+  document.querySelectorAll('.quiz-opt').forEach(o=>o.disabled=true);
+  const opts = document.querySelectorAll('.quiz-opt');
+  const correct = chosen===q.ans;
+  opts[chosen].classList.add(correct?'correct':'wrong');
+  if(!correct) opts[q.ans].classList.add('correct');
+  const fb = document.getElementById('quizFeedback');
+  fb.textContent = correct ? q.fb : '❌ '+q.fb;
+  fb.className = 'quiz-feedback show '+(correct?'good':'bad');
+  quizResults[quizIndex] = correct;
+  if(correct){ combo++; addScore(10+combo*5); if(combo>=2) showComboToast(); if(combo>=3) spawnConfetti(); }
+  else { combo=0; lives=Math.max(0,lives-1); document.getElementById('livesVal').textContent=lives; }
+  updateHUD();
+  document.getElementById('nextBtn').classList.add('show');
+}
+
+function nextQuestion(){ quizIndex++; renderQuiz(); }
+
+function renderGameOver(){
+  quizDone=true;
+  const correct=quizResults.filter(Boolean).length;
+  const pct=Math.round((correct/quizQ.length)*100);
+  const emoji=pct>=80?'🏆':pct>=50?'⭐':'💪';
+  const msg=pct>=80?'Incroyable ! Tu maîtrises le kanak !':pct>=50?'Bon travail, continue !':'Continue à pratiquer !';
+  document.getElementById('quizArea').innerHTML=`
+    <div class="gameover">
+      <span class="big-emoji">${emoji}</span>
+      <h2>Quiz terminé !</h2>
+      <div class="score-reveal">${correct}/${quizQ.length}</div>
+      <p>${msg}<br>Score final : <strong style="color:#f59e0b">${score} pts</strong></p>
+      <button class="restart-btn" onclick="restartQuiz()">🔄 Recommencer</button>
+    </div>`;
+  if(pct>=80) setTimeout(spawnConfetti,200);
+}
+
+function restartQuiz(){
+  quizIndex=0; quizDone=false; quizResults=[];
+  score=0; combo=0; lives=3;
+  document.getElementById('scoreVal').textContent=0;
+  document.getElementById('comboVal').textContent=0;
+  document.getElementById('livesVal').textContent=3;
+  renderQuiz();
+}
+
+// ===== EXPLORER =====
+function renderExplorer(){
+  document.getElementById('explorerGrid').innerHTML = explorerData.map((d,i)=>`
+    <div class="explorer-card" style="--accent-color:${d.color}" onclick="openModal(${i})">
+      <span class="ec-emoji">${d.emoji}</span>
+      <div class="ec-word">${d.word}</div>
+      <div class="ec-def">${d.def}</div>
+      <span class="ec-tag" style="background:${d.tagBg};color:${d.tagFg}">${d.tag}</span>
+    </div>`).join('');
+  document.getElementById('auGrid').innerHTML = auData.map(d=>`
+    <div class="explorer-card" style="--accent-color:${d.color}">
+      <span class="ec-emoji">${d.emoji}</span>
+      <div class="ec-word">${d.word}</div>
+      <div class="ec-def">${d.def}</div>
+      <span class="ec-tag" style="background:#1e1b4b;color:#a5b4fc">fréquence</span>
+    </div>`).join('');
+}
+
+function openModal(i){
+  const d = explorerData[i];
+  const exHtml = d.examples.map(e=>`
+    <div class="modal-ex">
+      <div class="kw">${e.kw}</div>
+      <div class="mg">${e.mg}</div>
+      <div class="tr">${e.tr}</div>
+    </div>`).join('');
+  document.getElementById('modalContent').innerHTML=`
+    <span class="modal-emoji">${d.emoji}</span>
+    <h3>${d.word}</h3>
+    <div class="modal-gloss">${d.def}</div>
+    <div class="modal-examples">${exHtml}</div>
+    <button class="close-modal" onclick="closeModal()">✕ Fermer</button>`;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click',e=>{ if(e.target===document.getElementById('modalOverlay')) closeModal(); });
+
+// ===== HUD =====
+function addScore(n){
+  score+=n;
+  const el=document.getElementById('scoreVal');
+  el.textContent=score;
+  el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+}
+function updateHUD(){
+  const cv=document.getElementById('comboVal');
+  cv.textContent=combo;
+  cv.classList.remove('bump'); void cv.offsetWidth; cv.classList.add('bump');
+}
+function showComboToast(){
+  const el=document.getElementById('streakToast');
+  document.getElementById('comboNum').textContent=combo;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2000);
+}
+
+// ===== CONFETTI =====
+function spawnConfetti(){
+  const colors=['#f59e0b','#ec4899','#8b5cf6','#10b981','#ef4444','#3b82f6'];
+  for(let i=0;i<40;i++){
+    const el=document.createElement('div');
+    el.className='confetti-piece';
+    const size=6+Math.random()*8;
+    el.style.cssText=`left:${Math.random()*100}vw;top:0;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>0.5?'50%':'2px'};--dur:${1.2+Math.random()*1.2}s;--delay:${Math.random()*0.6}s;`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3000);
+  }
+}
+</script>
+</body>
+</html>
