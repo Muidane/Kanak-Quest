@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classificateurs Numériques — Terres et Marées</title>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,400;0,600;1,400;1,600&family=Anybody:wght@400;700;900&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1a14;
+    --surface: #122019;
+    --card: #1a2e22;
+    --border: #2a4235;
+    --accent1: #c8612a;
+    --accent2: #3a9e8f;
+    --accent3: #e8c87a;
+    --accent4: #7bbfb5;
+    --accent5: #5b8c6e;
+    --text: #f0ebe0;
+    --muted: #7a9485;
+    --correct: #4db87a;
+    --wrong: #c0392b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Anybody', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 60% 50% at 15% 25%, rgba(58,158,143,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 75%, rgba(200,97,42,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 55% 10%, rgba(91,140,110,0.07) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    padding: 3rem 0 2rem;
+    position: relative;
+  }
+  .header-tag {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    background: rgba(58,158,143,0.1);
+    border: 1px solid rgba(58,158,143,0.3);
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    border-radius: 2px;
+    margin-bottom: 1.2rem;
+  }
+  h1 {
+    font-family: 'Crimson Pro', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.6rem;
+  }
+  h1 span { color: var(--accent1); font-style: italic; }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* SCORE BAR */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .score-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+  }
+  .score-val {
+    font-family: 'Courier Prime', monospace;
+    font-size: 1.8rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .score-val.green { color: var(--correct); }
+  .score-val.orange { color: var(--accent1); }
+  .score-val.purple { color: var(--accent5); }
+  .score-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .progress-wrap {
+    flex: 1;
+    min-width: 140px;
+  }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent3));
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .progress-text {
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 0.3rem;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  /* MODE SELECTOR */
+  .mode-selector {
+    display: flex;
+    gap: 0.7rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .mode-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'Anybody', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn.active {
+    background: var(--accent1);
+    border-color: var(--accent1);
+    color: white;
+  }
+  .mode-btn:hover:not(.active) {
+    border-color: var(--accent1);
+    color: var(--text);
+  }
+
+  /* QUESTION CARD */
+  .question-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    animation: slideIn 0.4s cubic-bezier(0.4,0,0.2,1);
+  }
+  .question-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent1), var(--accent3), var(--accent2));
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .q-category {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 0.8rem;
+  }
+  .q-text {
+    font-family: 'Crimson Pro', serif;
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    line-height: 1.3;
+    margin-bottom: 0.5rem;
+  }
+  .q-hint {
+    font-size: 0.85rem;
+    color: var(--muted);
+    font-style: italic;
+    margin-bottom: 0;
+  }
+  .classifier-word {
+    font-family: 'Courier Prime', monospace;
+    color: var(--accent3);
+    font-style: normal;
+    font-size: 1.1em;
+    background: rgba(232,200,122,0.12);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+  }
+
+  /* OPTIONS */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 600px) {
+    .options-grid { grid-template-columns: 1fr; }
+  }
+  .option-btn {
+    padding: 1rem 1.2rem;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Anybody', sans-serif;
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1.4;
+    position: relative;
+    overflow: hidden;
+  }
+  .option-btn:hover:not(:disabled) {
+    border-color: var(--accent2);
+    background: rgba(58,158,143,0.1);
+    transform: translateY(-1px);
+  }
+  .option-btn.selected {
+    border-color: var(--accent1);
+    background: rgba(255,107,53,0.12);
+  }
+  .option-btn.correct {
+    border-color: var(--correct);
+    background: rgba(6,214,160,0.15);
+    color: var(--correct);
+  }
+  .option-btn.wrong {
+    border-color: var(--wrong);
+    background: rgba(239,35,60,0.12);
+    color: var(--wrong);
+  }
+  .option-btn:disabled { cursor: default; }
+  .option-letter {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .option-btn.correct .option-letter { color: var(--correct); }
+  .option-btn.wrong .option-letter { color: var(--wrong); }
+
+  /* FEEDBACK */
+  .feedback {
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .feedback.show { display: block; }
+  .feedback.correct-fb {
+    background: rgba(6,214,160,0.12);
+    border: 1px solid rgba(6,214,160,0.3);
+    color: var(--correct);
+  }
+  .feedback.wrong-fb {
+    background: rgba(239,35,60,0.1);
+    border: 1px solid rgba(239,35,60,0.25);
+    color: #ff6b7a;
+  }
+  .feedback strong { display: block; font-size: 1rem; margin-bottom: 0.3rem; }
+
+  /* BUTTONS */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 2rem;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Anybody', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent1);
+    color: white;
+  }
+  .btn-primary:hover { background: #a8501f; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-row {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+  }
+
+  /* RESULTS */
+  .results-screen {
+    display: none;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    animation: slideIn 0.5s cubic-bezier(0.4,0,0.2,1);
+  }
+  .results-screen.show { display: block; }
+  .results-emoji { font-size: 4rem; margin-bottom: 1rem; }
+  .results-title {
+    font-family: 'Crimson Pro', serif;
+    font-size: 2.2rem;
+    margin-bottom: 0.5rem;
+  }
+  .results-score {
+    font-family: 'Courier Prime', monospace;
+    font-size: 3.5rem;
+    font-weight: 700;
+    color: var(--accent3);
+    margin: 1rem 0;
+  }
+  .results-msg {
+    color: var(--muted);
+    font-size: 1rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .results-breakdown {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .rb-item { text-align: center; }
+  .rb-num {
+    font-family: 'Courier Prime', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+  }
+  .rb-label { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+  /* MATCH GAME */
+  .match-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 580px) { .match-area { grid-template-columns: 1fr; } }
+  .match-col h3 {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.7rem;
+    font-family: 'Courier Prime', monospace;
+  }
+  .match-item {
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .match-item:hover { border-color: var(--accent2); }
+  .match-item.selected-left {
+    border-color: var(--accent1);
+    background: rgba(255,107,53,0.12);
+  }
+  .match-item.selected-right {
+    border-color: var(--accent2);
+    background: rgba(58,158,143,0.12);
+  }
+  .match-item.matched-ok {
+    border-color: var(--correct);
+    background: rgba(6,214,160,0.1);
+    color: var(--correct);
+    cursor: default;
+    opacity: 0.7;
+  }
+  .match-item.matched-bad {
+    border-color: var(--wrong);
+    background: rgba(239,35,60,0.1);
+    color: var(--wrong);
+  }
+  .match-word { font-family: 'Courier Prime', monospace; color: var(--accent3); }
+
+  /* INPUT GAME */
+  .input-area {
+    margin-bottom: 1.5rem;
+  }
+  .input-field {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Courier Prime', monospace;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 0.8rem;
+  }
+  .input-field:focus { border-color: var(--accent2); }
+  .input-field.correct-input { border-color: var(--correct); color: var(--correct); }
+  .input-field.wrong-input { border-color: var(--wrong); color: var(--wrong); }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; }
+  .toast.good { background: var(--correct); color: #0f0e17; }
+  .toast.bad { background: var(--wrong); color: white; }
+
+  /* STREAK */
+  .streak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: rgba(232,200,122,0.12);
+    border: 1px solid rgba(232,200,122,0.3);
+    border-radius: 99px;
+    padding: 0.3rem 0.8rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.75rem;
+    color: var(--accent3);
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .lang-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.7rem;
+    border-radius: 3px;
+    margin-bottom: 0.8rem;
+  }
+  .lang-badge.fr {
+    background: rgba(58,158,143,0.12);
+    border: 1px solid rgba(58,158,143,0.3);
+    color: var(--accent2);
+  }
+  .lang-badge.nelемwa {
+    background: rgba(200,97,42,0.12);
+    border: 1px solid rgba(200,97,42,0.35);
+    color: var(--accent1);
+  }
+  .source-ref {
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+    opacity: 0.7;
+  }
+  /* GAP FILL */
+  .gap-sentence {
+    font-family: 'Crimson Pro', serif;
+    font-size: clamp(1.2rem, 2.8vw, 1.7rem);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+  }
+  .gap-blank {
+    display: inline-block;
+    min-width: 120px;
+    border-bottom: 2.5px solid var(--accent3);
+    padding: 0 0.4em 0.1em;
+    margin: 0 0.2em;
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85em;
+    color: var(--accent3);
+    vertical-align: bottom;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .gap-blank.filled {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(58,158,143,0.08);
+    border-radius: 4px 4px 0 0;
+  }
+  .gap-blank.correct-blank {
+    border-color: var(--correct);
+    color: var(--correct);
+    background: rgba(77,184,122,0.12);
+    border-radius: 4px 4px 0 0;
+  }
+  .gap-blank.wrong-blank {
+    border-color: var(--wrong);
+    color: var(--wrong);
+    background: rgba(192,57,43,0.1);
+    border-radius: 4px 4px 0 0;
+  }
+  .gap-context {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: 'Courier Prime', monospace;
+    letter-spacing: 0.05em;
+    margin-bottom: 1.2rem;
+    padding: 0.5rem 0.8rem;
+    border-left: 2px solid var(--border);
+    line-height: 1.6;
+  }
+  .gap-context em { color: var(--accent3); font-style: normal; }
+  .suggestions-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Courier Prime', monospace;
+    margin-bottom: 0.6rem;
+  }
+  .suggestions-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .suggestion-chip {
+    padding: 0.45rem 1rem;
+    border-radius: 99px;
+    border: 1.5px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Courier Prime', monospace;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .suggestion-chip:hover:not(.used):not(:disabled) {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: rgba(232,200,122,0.08);
+    transform: translateY(-1px);
+  }
+  .suggestion-chip.used {
+    opacity: 0.25;
+    cursor: default;
+    pointer-events: none;
+  }
+  .suggestion-chip.correct-chip {
+    border-color: var(--correct);
+    color: var(--correct);
+    background: rgba(77,184,122,0.1);
+    opacity: 0.6;
+  }
+  .suggestion-chip.wrong-chip {
+    border-color: var(--wrong);
+    color: var(--wrong);
+    background: rgba(192,57,43,0.08);
+    opacity: 0.6;
+  }
+  .gloss-line {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.03em;
+    margin-top: 0.2rem;
+  }
+  .gloss-line span { color: var(--accent4); }
+
+  #game-area { min-height: 300px; }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="container">
+
+  <header>
+    <div class="header-tag">Terres &amp; Marées — Linguistique Kanak</div>
+    <h1>Classificateurs<br><span>Numériques</span></h1>
+    <p class="subtitle">Quiz interactif — Quantification & détermination</p>
+  </header>
+
+  <div class="score-bar">
+    <div class="score-item">
+      <div class="score-val green" id="score-correct">0</div>
+      <div class="score-label">Corrects</div>
+    </div>
+    <div class="score-item">
+      <div class="score-val orange" id="score-wrong">0</div>
+      <div class="score-label">Erreurs</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="progress-text" id="progress-text">Question 0 / 10</div>
+    </div>
+    <div class="score-item">
+      <div class="streak-badge">🔥 <span id="streak">0</span></div>
+      <div class="score-label">Série</div>
+    </div>
+  </div>
+
+  <div class="mode-selector">
+    <button class="mode-btn active" onclick="setMode('qcm')" id="btn-qcm">QCM</button>
+    <button class="mode-btn" onclick="setMode('match')" id="btn-match">Associations</button>
+    <button class="mode-btn" onclick="setMode('input')" id="btn-input">Saisie libre</button>
+    <button class="mode-btn" onclick="setMode('gap')" id="btn-gap">Phrases à trou</button>
+  </div>
+
+  <div id="game-area"></div>
+
+  <div class="results-screen" id="results">
+    <div class="results-emoji" id="results-emoji">🎉</div>
+    <div class="results-title">Quiz terminé !</div>
+    <div class="results-score" id="results-score">0/10</div>
+    <div class="results-breakdown">
+      <div class="rb-item">
+        <div class="rb-num" id="rb-correct" style="color:var(--correct)">0</div>
+        <div class="rb-label">Corrects</div>
+      </div>
+      <div class="rb-item">
+        <div class="rb-num" id="rb-wrong" style="color:var(--wrong)">0</div>
+        <div class="rb-label">Erreurs</div>
+      </div>
+      <div class="rb-item">
+        <div class="rb-num" id="rb-streak" style="color:var(--accent3)">0</div>
+        <div class="rb-label">Meilleure série</div>
+      </div>
+    </div>
+    <div class="results-msg" id="results-msg"></div>
+    <div class="btn-row" style="justify-content:center">
+      <button class="btn btn-primary" onclick="restartGame()">Rejouer</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = [
+  // Forme
+  { word: 'pwa-giik', category: 'Forme', meaning: 'un objet rond (fruits, jours, heures)', etymology: 'pwat "fruit"', example: 'pwa-giik pwa → un fruit rond' },
+  { word: 'wa-giik', category: 'Forme', meaning: 'un objet allongé, long', etymology: '', example: 'wa-giik → un objet long' },
+  // Prélèvement
+  { word: 'hava-giik', category: 'Prélèvement', meaning: 'objet large et plat', etymology: 'hava-t "largeur, côté"', example: 'hava-giik → planche large' },
+  { word: 'neya-giik', category: 'Prélèvement', meaning: 'morceau allongé, coupé en long', etymology: 'neya-t "milieu, morceau long"', example: 'neya-du → deux morceaux' },
+  { word: 'hmava-giik', category: 'Prélèvement', meaning: 'morceau plat, coupé en travers', etymology: 'hmava-t "petit bout plat"', example: 'hmava-giik → petit bout plat' },
+  { word: 'khaxa-giik', category: 'Prélèvement', meaning: 'planche coupée en long', etymology: 'khaxa-t "morceau de bois"', example: 'khaxa-giik → planche' },
+  { word: 'âda-giik', category: 'Prélèvement', meaning: 'morceau, tranche (de pastèque)', etymology: 'âdaxe "partager"', example: 'âda-giik → tranche' },
+  // Groupement
+  { word: 'hiva-giik', category: 'Groupement', meaning: 'un tas', etymology: 'hip "tas"', example: 'hiva-giik → tas de noix' },
+  { word: 'fuda-giik', category: 'Groupement', meaning: 'petit tas, poignée, touffe', etymology: 'fuung "assembler"', example: 'fuda-giik → poignée d\'herbes' },
+  { word: 'fhâa-xiik', category: 'Groupement', meaning: 'fagot de bois', etymology: 'fha-t "charge"', example: 'fhâa-xiik → fagot de bois' },
+  { word: 'kîî-xiik', category: 'Groupement', meaning: 'botte de paille / fagot', etymology: 'kîî-t "paquet, fagot"', example: 'kîî-xiik → botte de paille' },
+  { word: 'yaida-giik', category: 'Groupement', meaning: 'rangée de paille (avant le faîtage)', etymology: 'yaat "couvrir" + ida "rangée"', example: 'yaida-giik → rangée de paille' },
+  { word: 'mama-giik', category: 'Groupement', meaning: 'rangée de paille (première sur un toit), fagot de canne', etymology: 'ma "paille"', example: 'mama-giik → rangée de paille' },
+  { word: 'ida-giik', category: 'Groupement', meaning: 'rangée (cocotiers, ignames, bananiers)', etymology: 'ida-t "rangée, ligne"', example: 'ida-giik → rangée de cocotiers' },
+  // Catégorie spécifique
+  { word: 'gu-xiik', category: 'Catégorie', meaning: 'une filoche de poisson', etymology: 'gu-t "filoche"', example: 'gu-xiik → filoche de poisson' },
+  { word: 'dee-xiik', category: 'Catégorie', meaning: 'une main de bananes', etymology: 'dee-t "main de banane"', example: 'dee-xiik → main de bananes' },
+  { word: 'maa-xiik', category: 'Catégorie', meaning: 'lot de trois ignames/poissons liés avec de la paille', etymology: 'maaxi "lien de paille"', example: 'maa-xiik → trois ignames liés' },
+  { word: 'wat-giik / wâ-xiik', category: 'Catégorie', meaning: 'paire de roussettes attachées et tuées (cérémonies)', etymology: 'wat "lien, corde"', example: 'wâ-xiik → paire de roussettes' },
+  // Fréquence
+  { word: 'au-riik', category: 'Fréquence', meaning: 'une fois', etymology: 'au : fois', example: 'au-riik → une occurrence' },
+  { word: 'au-ru', category: 'Fréquence', meaning: 'deux fois', etymology: 'au : fois + ru', example: 'au-ru → deux occurrences' },
+  { word: 'au-xan', category: 'Fréquence', meaning: 'trois fois', etymology: 'au : fois + xan', example: 'au-xan → trois occurrences' },
+];
+
+// Wrong answers pool
+const WRONG_POOL = [
+  'un objet carré',
+  'une quantité infinie',
+  'un liquide versé',
+  'une action répétée',
+  'un nombre pair',
+  'un arbre isolé',
+  'une couleur vive',
+  'un son aigu',
+  'une distance longue',
+  'un mouvement circulaire',
+  'cinq unités exactement',
+  'un tissu déchiré',
+  'une graine simple',
+  'une pierre ronde',
+  'un chemin tracé',
+];
+
+let mode = 'qcm';
+let questions = [];
+let current = 0;
+let correct = 0;
+let wrong = 0;
+let streak = 0;
+let bestStreak = 0;
+let answered = false;
+let matchLeft = null;
+let matchPairs = [];
+let matchCorrect = 0;
+
+function setMode(m) {
+  mode = m;
+  ['qcm','match','input','gap'].forEach(id => {
+    document.getElementById('btn-'+id).classList.toggle('active', id === m);
+  });
+  restartGame();
+}
+
+function shuffle(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+function generateQuestions(n = 10) {
+  const pool = shuffle(DATA).slice(0, n);
+  return pool.map(item => {
+    const wrongAnswers = shuffle(WRONG_POOL.filter(w => w !== item.meaning)).slice(0, 3);
+    const options = shuffle([item.meaning, ...wrongAnswers]);
+    return { ...item, options };
+  });
+}
+
+function restartGame() {
+  document.getElementById('results').classList.remove('show');
+  questions = generateQuestions(10);
+  current = 0; correct = 0; wrong = 0; streak = 0; bestStreak = 0;
+  gapPool = shuffle(GAP_SENTENCES).slice(0, 15);
+  gapCurrent = 0;
+  gapAnswered = false;
+  updateScoreboard();
+  renderQuestion();
+}
+
+function updateScoreboard() {
+  document.getElementById('score-correct').textContent = correct;
+  document.getElementById('score-wrong').textContent = wrong;
+  document.getElementById('streak').textContent = streak;
+  const total = mode === 'gap' ? gapPool.length : questions.length;
+  const done = current;
+  const pct = total > 0 ? (done / total) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `Question ${done} / ${total}`;
+}
+
+function renderQuestion() {
+  const total = mode === 'gap' ? gapPool.length : questions.length;
+  if (current >= total) { showResults(); return; }
+  updateScoreboard();
+  const q = questions[current];
+  if (mode === 'qcm') renderQCM(q);
+  else if (mode === 'match') renderMatch();
+  else if (mode === 'gap') renderGap();
+  else renderInput(q);
+}
+
+function renderQCM(q) {
+  const catColors = { 'Forme': '#3a9e8f', 'Prélèvement': '#c8612a', 'Groupement': '#4db87a', 'Catégorie': '#e8c87a', 'Fréquence': '#7bbfb5' };
+  const color = catColors[q.category] || '#fff';
+  const html = `
+    <div class="question-card" id="q-card">
+      <div class="q-category" style="color:${color}">● Catégorie : ${q.category}</div>
+      <div class="q-text">Que signifie <span class="classifier-word">${q.word}</span> ?</div>
+      ${q.etymology ? `<div class="q-hint">Étymologie : ${q.etymology}</div>` : ''}
+    </div>
+    <div class="options-grid" id="options"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="btn-row" id="btn-row" style="display:none">
+      <button class="btn btn-primary" onclick="nextQuestion()">Question suivante →</button>
+    </div>
+  `;
+  document.getElementById('game-area').innerHTML = html;
+  const opts = document.getElementById('options');
+  const letters = ['A','B','C','D'];
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.innerHTML = `<span class="option-letter">${letters[i]}</span>${opt}`;
+    btn.onclick = () => selectAnswer(opt, q.meaning, q);
+    opts.appendChild(btn);
+  });
+  answered = false;
+}
+
+function selectAnswer(chosen, correct_ans, q) {
+  if (answered) return;
+  answered = true;
+  const btns = document.querySelectorAll('.option-btn');
+  const isCorrect = chosen === correct_ans;
+
+  btns.forEach(btn => {
+    btn.disabled = true;
+    const text = btn.textContent.substring(1).trim();
+    if (text === correct_ans) btn.classList.add('correct');
+    else if (text === chosen && !isCorrect) btn.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show');
+  if (isCorrect) {
+    correct++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    fb.classList.add('correct-fb');
+    fb.innerHTML = `<strong>✓ Bravo !</strong>${q.example}`;
+    showToast('Correct ! +1', 'good');
+  } else {
+    wrong++;
+    streak = 0;
+    fb.classList.add('wrong-fb');
+    fb.innerHTML = `<strong>✗ Incorrect</strong>La bonne réponse était : <em>${correct_ans}</em><br>${q.example}`;
+    showToast('Incorrect…', 'bad');
+  }
+  document.getElementById('score-correct').textContent = correct;
+  document.getElementById('score-wrong').textContent = wrong;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('btn-row').style.display = 'flex';
+}
+
+function nextQuestion() {
+  current++;
+  renderQuestion();
+}
+
+// ─── MATCH MODE ───────────────────────────────────────────────
+function renderMatch() {
+  const pool = shuffle(DATA).slice(0, 6);
+  matchPairs = pool.map(d => ({ word: d.word, meaning: d.meaning }));
+  matchLeft = null;
+  matchCorrect = 0;
+
+  const leftItems = shuffle(matchPairs.map(p => p.word));
+  const rightItems = shuffle(matchPairs.map(p => p.meaning));
+
+  let leftHTML = leftItems.map((w, i) => `<div class="match-item" id="left-${i}" onclick="selectMatchLeft(${i}, '${CSS.escape(w)}')" data-word="${w}"><span class="match-word">${w}</span></div>`).join('');
+  let rightHTML = rightItems.map((m, i) => `<div class="match-item" id="right-${i}" onclick="selectMatchRight(${i}, '${CSS.escape(m)}')" data-meaning="${m}">${m}</div>`).join('');
+
+  const html = `
+    <div class="question-card">
+      <div class="q-category" style="color:var(--accent2)">● Mode : Associations</div>
+      <div class="q-text">Relie chaque classificateur à sa signification</div>
+      <div class="q-hint">Clique sur un mot à gauche, puis sa définition à droite</div>
+    </div>
+    <div class="match-area">
+      <div class="match-col"><h3>Classificateurs</h3><div id="match-left">${leftHTML}</div></div>
+      <div class="match-col"><h3>Significations</h3><div id="match-right">${rightHTML}</div></div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+  `;
+  document.getElementById('game-area').innerHTML = html;
+}
+
+let matchSelectedLeft = null;
+let matchSelectedRight = null;
+
+function selectMatchLeft(i, word) {
+  const el = document.getElementById('left-'+i);
+  if (el.classList.contains('matched-ok')) return;
+  document.querySelectorAll('#match-left .match-item').forEach(e => e.classList.remove('selected-left'));
+  el.classList.add('selected-left');
+  matchSelectedLeft = { idx: i, word };
+  tryMatchPair();
+}
+
+function selectMatchRight(i, meaning) {
+  const el = document.getElementById('right-'+i);
+  if (el.classList.contains('matched-ok')) return;
+  document.querySelectorAll('#match-right .match-item').forEach(e => e.classList.remove('selected-right'));
+  el.classList.add('selected-right');
+  matchSelectedRight = { idx: i, meaning };
+  tryMatchPair();
+}
+
+function tryMatchPair() {
+  if (!matchSelectedLeft || !matchSelectedRight) return;
+  const wordEl = document.getElementById('left-'+matchSelectedLeft.idx);
+  const meaningEl = document.getElementById('right-'+matchSelectedRight.idx);
+  const pair = matchPairs.find(p => p.word === matchSelectedLeft.word);
+  if (pair && pair.meaning === matchSelectedRight.meaning) {
+    wordEl.classList.remove('selected-left');
+    meaningEl.classList.remove('selected-right');
+    wordEl.classList.add('matched-ok');
+    meaningEl.classList.add('matched-ok');
+    matchCorrect++;
+    correct++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    showToast('Bonne association ! 🎯', 'good');
+    document.getElementById('score-correct').textContent = correct;
+    document.getElementById('streak').textContent = streak;
+    if (matchCorrect === matchPairs.length) {
+      setTimeout(() => {
+        current += matchPairs.length;
+        if (current >= questions.length) showResults();
+        else renderMatch();
+      }, 800);
+    }
+  } else {
+    wordEl.classList.add('matched-bad');
+    meaningEl.classList.add('matched-bad');
+    wrong++;
+    streak = 0;
+    showToast('Mauvaise association', 'bad');
+    document.getElementById('score-wrong').textContent = wrong;
+    document.getElementById('streak').textContent = streak;
+    setTimeout(() => {
+      wordEl.classList.remove('selected-left','matched-bad');
+      meaningEl.classList.remove('selected-right','matched-bad');
+    }, 600);
+  }
+  matchSelectedLeft = null;
+  matchSelectedRight = null;
+}
+
+// ─── INPUT MODE ───────────────────────────────────────────────
+function renderInput(q) {
+  const catColors = { 'Forme': '#3a9e8f', 'Prélèvement': '#c8612a', 'Groupement': '#4db87a', 'Catégorie': '#e8c87a', 'Fréquence': '#7bbfb5' };
+  const color = catColors[q.category] || '#fff';
+  const html = `
+    <div class="question-card">
+      <div class="q-category" style="color:${color}">● Catégorie : ${q.category}</div>
+      <div class="q-text">Que signifie <span class="classifier-word">${q.word}</span> ?</div>
+      ${q.etymology ? `<div class="q-hint">Étymologie : ${q.etymology}</div>` : ''}
+    </div>
+    <div class="input-area">
+      <input class="input-field" id="input-answer" type="text" placeholder="Tape ta réponse ici…" autocomplete="off" />
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="checkInput()">Vérifier</button>
+        <button class="btn btn-secondary" onclick="skipInput()" style="font-size:0.8rem">Passer / Voir réponse</button>
+      </div>
+    </div>
+    <div class="feedback" id="feedback"></div>
+    <div class="btn-row" id="btn-row" style="display:none">
+      <button class="btn btn-primary" onclick="nextQuestion()">Question suivante →</button>
+    </div>
+  `;
+  document.getElementById('game-area').innerHTML = html;
+  answered = false;
+  document.getElementById('input-answer').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkInput();
+  });
+}
+
+function checkInput() {
+  if (answered) return;
+  const q = questions[current];
+  const val = document.getElementById('input-answer').value.trim().toLowerCase();
+  if (!val) return;
+  const target = q.meaning.toLowerCase();
+  const isCorrect = target.includes(val) || val.includes(target.substring(0,8));
+  answered = true;
+  const inp = document.getElementById('input-answer');
+  inp.disabled = true;
+  inp.classList.add(isCorrect ? 'correct-input' : 'wrong-input');
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show');
+  if (isCorrect) {
+    correct++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    fb.classList.add('correct-fb');
+    fb.innerHTML = `<strong>✓ Bien !</strong>${q.example}`;
+    showToast('Correct !', 'good');
+  } else {
+    wrong++;
+    streak = 0;
+    fb.classList.add('wrong-fb');
+    fb.innerHTML = `<strong>✗ Incorrect</strong>La bonne réponse : <em>${q.meaning}</em><br>${q.example}`;
+    showToast('Incorrect…', 'bad');
+  }
+  document.getElementById('score-correct').textContent = correct;
+  document.getElementById('score-wrong').textContent = wrong;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('btn-row').style.display = 'flex';
+}
+
+function skipInput() {
+  if (answered) return;
+  answered = true;
+  const q = questions[current];
+  wrong++;
+  streak = 0;
+  const inp = document.getElementById('input-answer');
+  inp.disabled = true;
+  inp.classList.add('wrong-input');
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show', 'wrong-fb');
+  fb.innerHTML = `<strong>Réponse</strong>${q.meaning}<br><em>${q.example}</em>`;
+  document.getElementById('score-wrong').textContent = wrong;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('btn-row').style.display = 'flex';
+}
+
+// ─── GAP FILL MODE ────────────────────────────────────────────
+const GAP_SENTENCES = [
+  {
+    id: 'g01',
+    template: 'Il a cueilli ___ mangues dans le jardin.',
+    answer: 'pwa-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   mangue   jardin',
+    translation: '"il a cueilli une mangue dans le jardin"',
+    hint: 'Les mangues sont des objets ronds → classificateur de la forme ronde',
+    distractors: ['wa-giik', 'hava-giik', 'fuda-giik', 'ida-giik'],
+  },
+  {
+    id: 'g02',
+    template: 'Le charpentier a taillé ___ de bambou.',
+    answer: 'wa-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   morceau-bambou   tailler',
+    translation: '"le charpentier a taillé un bambou"',
+    hint: 'Le bambou est un objet allongé → classificateur de forme longue',
+    distractors: ['pwa-giik', 'hmava-giik', 'khaxa-giik', 'neya-giik'],
+  },
+  {
+    id: 'g03',
+    template: 'Elle a posé ___ de bois plat sur la table.',
+    answer: 'hava-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   bois-plat   table',
+    translation: '"elle a posé un morceau de bois plat sur la table"',
+    hint: 'Un objet large et plat → hava-t "largeur, côté"',
+    distractors: ['wa-giik', 'neya-giik', 'khaxa-giik', 'pwa-giik'],
+  },
+  {
+    id: 'g04',
+    template: 'Il a coupé ___ de canne à sucre dans la longueur.',
+    answer: 'neya-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   canne-sucre   couper-long',
+    translation: '"il a coupé un morceau de canne à sucre en long"',
+    hint: 'Morceau allongé coupé en long → neya-t "milieu, morceau long"',
+    distractors: ['hmava-giik', 'hava-giik', 'wa-giik', 'khaxa-giik'],
+  },
+  {
+    id: 'g05',
+    template: 'La femme a apporté ___ de pastèque pour le repas.',
+    answer: 'âda-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   pastèque   repas',
+    translation: '"elle a apporté une tranche de pastèque"',
+    hint: 'Tranche ou morceau issu d\'un partage → âdaxe "partager"',
+    distractors: ['hmava-giik', 'pwa-giik', 'neya-giik', 'hava-giik'],
+  },
+  {
+    id: 'g06',
+    template: 'Les enfants ont ramassé ___ de noix de coco au pied de l\'arbre.',
+    answer: 'hiva-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   noix-coco   ramasser',
+    translation: '"ils ont ramassé un tas de noix de coco"',
+    hint: 'Un tas de choses groupées → hip "tas"',
+    distractors: ['fuda-giik', 'mama-giik', 'ida-giik', 'pwa-giik'],
+  },
+  {
+    id: 'g07',
+    template: 'La vieille dame tenait ___ d\'herbes médicinales dans la main.',
+    answer: 'fuda-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   herbe-médicinal   main',
+    translation: '"elle tenait une poignée d\'herbes médicinales"',
+    hint: 'Petit tas, poignée, touffe → fuung "assembler"',
+    distractors: ['hiva-giik', 'kîî-xiik', 'mama-giik', 'fhâa-xiik'],
+  },
+  {
+    id: 'g08',
+    template: 'L\'homme a attaché ___ de bois pour allumer le feu.',
+    answer: 'fhâa-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   bois   feu',
+    translation: '"il a attaché un fagot de bois pour le feu"',
+    hint: 'Un fagot de bois → fha-t "charge"',
+    distractors: ['kîî-xiik', 'fuda-giik', 'hiva-giik', 'mama-giik'],
+  },
+  {
+    id: 'g09',
+    template: 'Elle a posé ___ de paille sur le toit de la case.',
+    answer: 'kîî-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   paille   toit',
+    translation: '"elle a posé une botte de paille sur le toit"',
+    hint: 'Botte de paille / fagot → kîî-t "paquet, fagot"',
+    distractors: ['fhâa-xiik', 'yaida-giik', 'mama-giik', 'fuda-giik'],
+  },
+  {
+    id: 'g10',
+    template: 'Le chef a planté ___ de cocotiers le long du chemin.',
+    answer: 'ida-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   cocotier   chemin',
+    translation: '"le chef a planté une rangée de cocotiers"',
+    hint: 'Une rangée d\'arbres → ida-t "rangée, ligne"',
+    distractors: ['mama-giik', 'yaida-giik', 'hiva-giik', 'fuda-giik'],
+  },
+  {
+    id: 'g11',
+    template: 'Le pêcheur a ramené ___ de poissons dans son filet.',
+    answer: 'gu-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   poisson   filet',
+    translation: '"il a ramené une filoche de poissons"',
+    hint: 'Une filoche de poissons → gu-t "filoche"',
+    distractors: ['maa-xiik', 'dee-xiik', 'wat-giik / wâ-xiik', 'fuda-giik'],
+  },
+  {
+    id: 'g12',
+    template: 'Le vendeur a posé ___ de bananes sur l\'étal.',
+    answer: 'dee-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   banane   étal',
+    translation: '"il a posé une main de bananes sur l\'étal"',
+    hint: 'Une main de bananes → dee-t "main de banane"',
+    distractors: ['gu-xiik', 'maa-xiik', 'pwa-giik', 'hiva-giik'],
+  },
+  {
+    id: 'g13',
+    template: 'La grand-mère a offert ___ d\'ignames liés pour la cérémonie.',
+    answer: 'maa-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   igname-lié   cérémonie',
+    translation: '"elle a offert un lot de trois ignames liés avec de la paille"',
+    hint: 'Lot de trois ignames ou poissons liés avec de la paille → maaxi "lien de paille"',
+    distractors: ['dee-xiik', 'gu-xiik', 'kîî-xiik', 'fhâa-xiik'],
+  },
+  {
+    id: 'g14',
+    template: 'Il a offert ___ de roussettes pour le mariage.',
+    answer: 'wat-giik / wâ-xiik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   roussette   mariage',
+    translation: '"il a offert une paire de roussettes attachées pour la cérémonie"',
+    hint: 'Paire de roussettes attachées pour les cérémonies → wat "lien, corde"',
+    distractors: ['maa-xiik', 'gu-xiik', 'dee-xiik', 'fuda-giik'],
+  },
+  {
+    id: 'g15',
+    template: 'Il est passé ___ chez son oncle ce mois-ci.',
+    answer: 'au-riik',
+    blank_label: 'classificateur de fréquence',
+    gloss: 'fois-un   chez   oncle   mois',
+    translation: '"il est passé une fois chez son oncle ce mois-ci"',
+    hint: 'Une seule occurrence → au : "fois"',
+    distractors: ['au-ru', 'au-xan', 'pwa-giik', 'ida-giik'],
+  },
+  {
+    id: 'g16',
+    template: 'Les enfants ont chanté ___ la même chanson.',
+    answer: 'au-ru',
+    blank_label: 'classificateur de fréquence',
+    gloss: 'fois-deux   chanter   chanson',
+    translation: '"les enfants ont chanté deux fois la même chanson"',
+    hint: 'Deux occurrences → au : "fois" + ru',
+    distractors: ['au-riik', 'au-xan', 'pwa-giik', 'hiva-giik'],
+  },
+  {
+    id: 'g17',
+    template: 'La vague a frappé le rocher ___.',
+    answer: 'au-xan',
+    blank_label: 'classificateur de fréquence',
+    gloss: 'fois-trois   vague   rocher',
+    translation: '"la vague a frappé le rocher trois fois"',
+    hint: 'Trois occurrences → au : "fois" + xan',
+    distractors: ['au-riik', 'au-ru', 'maa-xiik', 'fuda-giik'],
+  },
+  {
+    id: 'g18',
+    template: 'Le menuisier a découpé ___ de bois dans la largeur pour la charpente.',
+    answer: 'hmava-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   bois-plat   largeur   charpente',
+    translation: '"il a découpé un morceau plat coupé en travers"',
+    hint: 'Morceau plat coupé en travers → hmava-t "petit bout plat"',
+    distractors: ['neya-giik', 'khaxa-giik', 'hava-giik', 'wa-giik'],
+  },
+  {
+    id: 'g19',
+    template: 'Il a sorti ___ du bois pour construire le plancher.',
+    answer: 'khaxa-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   bois   plancher',
+    translation: '"il a sorti une planche coupée en long"',
+    hint: 'Planche coupée en long → khaxa-t "morceau de bois"',
+    distractors: ['hmava-giik', 'neya-giik', 'hava-giik', 'wa-giik'],
+  },
+  {
+    id: 'g20',
+    template: 'La couvreur a posé ___ de paille juste avant le faîtage.',
+    answer: 'yaida-giik',
+    blank_label: 'classificateur',
+    gloss: 'CLASS-un   paille   faîtage',
+    translation: '"il a posé la dernière rangée de paille avant le faîtage"',
+    hint: 'Rangée de paille avant le faîtage → yaat "couvrir" + ida "rangée"',
+    distractors: ['mama-giik', 'kîî-xiik', 'ida-giik', 'fhâa-xiik'],
+  },
+  // ── Phrases authentiques en nêlêmwa ──────────────────────────
+  {
+    id: 'n01',
+    lang: 'nelемwa',
+    template: 'aa-xi-ax-o ___ — "il y a vingt maisons"',
+    answer: 'mwa',
+    blank_label: 'nom (nêlêmwa)',
+    gloss: 'CLASS-un-homme-REL   maison',
+    translation: 'aa-xi-ax-o mwa → "il y a vingt maisons"',
+    hint: 'aa-xi-ax-o = CLASS-un-homme-REL (vingtaine) + le nom de la chose comptée',
+    distractors: ['nok', 'bwa', 'on', 'kuvic'],
+    source: 'Ex. 42a',
+  },
+  {
+    id: 'n02',
+    lang: 'nelемwa',
+    template: 'aa-ru-ax-o ___ — "il y a quarante poissons"',
+    answer: 'nok',
+    blank_label: 'nom (nêlêmwa)',
+    gloss: 'CLASS-deux-homme-REL   poisson',
+    translation: 'aa-ru-ax-o nok → "il y a quarante poissons"',
+    hint: 'aa-ru = CLASS-deux → quarante (2×20). nok = poisson en nêlêmwa',
+    distractors: ['mwa', 'bwa', 'agu', 'kuvic'],
+    source: 'Ex. 42b',
+  },
+  {
+    id: 'n03',
+    lang: 'nelемwa',
+    template: 'bwa fwamwa ___ "dans un pays" (quelconque)',
+    answer: 'pwa-giik',
+    blank_label: 'classificateur (nêlêmwa)',
+    gloss: 'sur   pays   CLASS-un',
+    translation: 'bwa fwamwa pwa-giik → "dans un pays (quelconque)"',
+    hint: 'pwa-giik = CLASS-un pour les objets ronds / unités générales, ici occurrence indéfinie',
+    distractors: ['wa-giik', 'pwa-neda', 'hava-giik', 'au-riik'],
+    source: 'Ex. 43a',
+  },
+  {
+    id: 'n04',
+    lang: 'nelемwa',
+    template: 'bwa ___ wany "sur un bateau" (valeur numérique)',
+    answer: 'wa-giik',
+    blank_label: 'classificateur (nêlêmwa)',
+    gloss: 'sur   CLASS-un   bateau',
+    translation: 'bwa wa-giik wany → "sur un bateau" (un seul, valeur numérique)',
+    hint: 'wa-giik pour un objet long/allongé comme un bateau ; valeur de comptage stricte',
+    distractors: ['pwa-giik', 'hava-giik', 'ida-giik', 'au-riik'],
+    source: 'Ex. 43b',
+  },
+  {
+    id: 'n05',
+    lang: 'nelемwa',
+    template: 'pwa-giik ___ shêlâ-at → "une demi-heure"',
+    answer: 'hmava',
+    blank_label: 'nom dépendant (nêlêmwa)',
+    gloss: 'CLASS-un   morceau   signe-soleil',
+    translation: 'pwa-giik hmava shêlâ-at → "une demi-heure" (litt. un morceau de soleil)',
+    hint: 'hmava-t = "morceau" — prélève une fraction du temps (signe du soleil)',
+    distractors: ['roven', 'haxaa', 'taa gëlâ', 'ava-t'],
+    source: 'Ex. 55',
+  },
+  {
+    id: 'n06',
+    lang: 'nelемwa',
+    template: 'hangi na taaja tujiic ___ → "j\'ai pêché environ dix poissons"',
+    answer: 'nok',
+    blank_label: 'nom (nêlêmwa)',
+    gloss: 'peut-être   1SG   piquer   dix   poisson',
+    translation: 'hangi na taaja tujiic nok → approximation : environ dix poissons',
+    hint: 'hangi = "peut-être" exprime l\'approximation. nok = poisson en nêlêmwa',
+    distractors: ['mwa', 'kuvic', 'agu', 'bwa'],
+    source: 'Ex. 56',
+  },
+  {
+    id: 'n07',
+    lang: 'nelемwa',
+    template: 'haxaa-t ___ me na khiibai-e → "je l\'ai presque atteint"',
+    answer: 'au-riik',
+    blank_label: 'classificateur de fréquence (nêlêmwa)',
+    gloss: 'manque   fois-une   DÉPEND   1SG   frapper-3SG',
+    translation: 'haxaa-t au-riik me na khiibai-e → "il m\'a presque atteint (manque une fois)"',
+    hint: 'haxaa-t = "il manque X" ; au-riik = une fois. Structure : haxaa-t + au-riik + me + prédicat',
+    distractors: ['au-ru', 'au-xan', 'pwa-giik', 'wa-giik'],
+    source: 'Ex. 61',
+  },
+  {
+    id: 'n08',
+    lang: 'nelемwa',
+    template: 'pwà mwêêlôô ___ agu → "il reste encore deux personnes seulement"',
+    answer: 'aa-ru',
+    blank_label: 'classificateur (nêlêmwa)',
+    gloss: 'RESTR   rester   CLASS-deux   personne',
+    translation: 'pwà mwêêlôô aa-ru agu → "il reste encore deux personnes seulement"',
+    hint: 'aa-ru = CLASS-deux (deux personnes). mwêêlôô = "rester, il reste"',
+    distractors: ['aa-xan', 'pwa-giik', 'au-ru', 'roven'],
+    source: 'Ex. 63',
+  },
+  {
+    id: 'n09',
+    lang: 'nelемwa',
+    template: 'hla u ___ pwa-gan → "ils en ont eu trois chacun"',
+    answer: 'khaa',
+    blank_label: 'distributif (nêlêmwa)',
+    gloss: '3PL   ACC   DISTR   CLASS-trois',
+    translation: 'hla u khaa pwa-gan → "ils en ont eu trois chacun" (distributif)',
+    hint: 'khaa = distributif "par (n), chacun" ; antéposé au numéral',
+    distractors: ['roven', 'ove', 'xaa', 'hangi'],
+    source: 'Ex. 97',
+  },
+  {
+    id: 'n10',
+    lang: 'nelемwa',
+    template: 'hla vhaa agu ___ → "tout le monde en parle"',
+    answer: 'roven',
+    blank_label: 'quantificateur (nêlêmwa)',
+    gloss: '3PL   parler   gens   tous',
+    translation: 'hla vhaa agu roven → "tout le monde en parle" (totalité)',
+    hint: 'roven = "tous, tout entier" — totalité d\'éléments discrets',
+    distractors: ['khaa', 'ove', 'hangi', 'mwêêlôô'],
+    source: 'Ex. 89a',
+  },
+  {
+    id: 'n11',
+    lang: 'nelемwa',
+    template: 'ove hla ___ xe hla uya → "eux tous sans exception, ils sont venus"',
+    answer: 'roven',
+    blank_label: 'quantificateur (nêlêmwa)',
+    gloss: 'tous   3PL   tous   THÉM   3PL   arriver',
+    translation: 'ove hla roven xe hla uya → "eux tous sans exception, ils sont venus"',
+    hint: 'ove + roven : double totalisation — valeur emphatique "sans exception"',
+    distractors: ['khaa', 'hangi', 'mwêêlôô', 'ava-t'],
+    source: 'Ex. 92',
+  },
+  {
+    id: 'n12',
+    lang: 'nelемwa',
+    template: 'na kûûri pwâ-ciic ___ → "j\'ai mangé quelques fruits" (quantité indéfinie)',
+    answer: 'ava-t',
+    blank_label: 'déterminant (nêlêmwa)',
+    gloss: '1SG   manger.TR   fruit-arbre   quelques',
+    translation: 'na kûûri pwâ-ciic ava-t → "j\'ai mangé quelques fruits" (en nombre indéterminé)',
+    hint: 'ava-t postposé au nom = quantité indéfinie "quelques, certains"',
+    distractors: ['roven', 'khaa', 'ove', 'hangi'],
+    source: 'Ex. 69a',
+  },
+  {
+    id: 'n13',
+    lang: 'nelемwa',
+    template: 'cêê mee-yo ___ → "certains sont vraiment bien mûrs"',
+    answer: 'ava-t',
+    blank_label: 'déterminant (nêlêmwa)',
+    gloss: 'très   mûr-bon   quelques',
+    translation: 'cêê mee-yo ava-t → "certains sont vraiment bien mûrs"',
+    hint: 'ava-t comme nom dépendant = "certains, quelques-uns" (agent dans construction à deux arguments)',
+    distractors: ['roven', 'khaa', 'mwêêlôô', 'xaa'],
+    source: 'Ex. 68',
+  },
+  {
+    id: 'n14',
+    lang: 'nelемwa',
+    template: 'hla u maak ___ → "ils sont tous morts"',
+    answer: 'roven',
+    blank_label: 'quantificateur (nêlêmwa)',
+    gloss: '3PL   ACC   être.mort   tous',
+    translation: 'hla u maak roven → "ils sont tous morts"',
+    hint: 'roven = totalité/complétude, postposé ici au verbe aspectuel',
+    distractors: ['khaa', 'ove', 'ava-t', 'hangi'],
+    source: 'Ex. 87',
+  },
+  {
+    id: 'n15',
+    lang: 'nelемwa',
+    template: 'ku ___ na tabö → "cela fait deux fois que cela tombe / qu\'il pleut"',
+    answer: 'au-ru',
+    blank_label: 'classificateur de fréquence (nêlêmwa)',
+    gloss: 'ACC   fois-deux   PROG   tomber',
+    translation: 'ku au-ru na tabö → "cela fait deux fois que cela tombe"',
+    hint: 'au-ru = deux fois (fréquence) ; construction au-NUMÉRAL + na + GV sans participant',
+    distractors: ['au-riik', 'au-xan', 'roven', 'khaa'],
+    source: 'Ex. 27',
+  },
+  {
+    id: 'n16',
+    lang: 'nelемwa',
+    template: 'i axi agu ma(h)leeli ___ → "il a vu les trois hommes (en question)"',
+    answer: 'aa-xan',
+    blank_label: 'classificateur (nêlêmwa)',
+    gloss: '3SG   voir   gens   ces.ANAPH   CLASS-trois',
+    translation: 'i axi agu ma(h)leeli aa-xan → "il a vu les trois hommes (totalité)"',
+    hint: 'aa-xan = CLASS-trois pour les humains ; référence à une occurrence déjà déterminée',
+    distractors: ['aa-ru', 'pwa-gan', 'roven', 'khaa'],
+    source: 'Ex. 46',
+  },
+  {
+    id: 'n17',
+    lang: 'nelемwa',
+    template: 'na me aa hmava ___ nok → "donne-moi encore un peu de poisson"',
+    answer: 'khoo-ny',
+    blank_label: 'nom possessif (nêlêmwa)',
+    gloss: '2SG   poser.en.bas   ITER   morceau   nourriture-POSS.1SG   poisson',
+    translation: 'co na du aa hmava khoo-ny nok → "donne-moi encore un peu de poisson"',
+    hint: 'hmava = "morceau" (classificateur nominal) ; khoo-ny = nourriture-POSS.1SG',
+    distractors: ['shi-ny', 'kuvic', 'nok', 'mwa'],
+    source: 'Ex. 72',
+  },
+  {
+    id: 'n18',
+    lang: 'nelемwa',
+    template: 'xam ___ vhaa i ye → "il a bien assez parlé"',
+    answer: 'jaxa-t',
+    blank_label: 'quantificateur (nêlêmwa)',
+    gloss: 'ASS   mesure   parole   REL   3SG',
+    translation: 'xam jaxa-t vhaa i ye → "il a bien assez parlé" (emphase)',
+    hint: 'jaxa-t = "taille, mesure, assez, suffisant" ; xam = emphase "bien assez"',
+    distractors: ['hangi', 'roven', 'ava-t', 'khaa'],
+    source: 'Ex. 81',
+  },
+  {
+    id: 'n19',
+    lang: 'nelемwa',
+    template: 'aa-xi-ak (o) khooba ak ___ → "ces hommes sont vingt"',
+    answer: 'ma(h)leena',
+    blank_label: 'démonstratif (nêlêmwa)',
+    gloss: 'CLASS-un-homme   (REL)   nombre   homme   ces.DÉICT',
+    translation: 'aa-xi-ak (o) khooba ak ma(h)leena → "ces hommes sont vingt"',
+    hint: 'ma(h)leena = démonstratif "ces (là)" ; aa-xi-ak = vingtaine (litt. un homme)',
+    distractors: ['roven', 'ava-t', 'nok', 'mwa'],
+    source: 'Ex. 41c',
+  },
+  {
+    id: 'n20',
+    lang: 'nelемwa',
+    template: 'hâ na shi-hla me hla ___ wa-du kuvic → "nous leur donnerons deux ignames chacun"',
+    answer: 'khaa',
+    blank_label: 'distributif (nêlêmwa)',
+    gloss: '1PL.INCL   poser   côté-POSS.3PL   DÉPEND   3PL   DISTR   CLASS-deux   igname',
+    translation: 'hâ na shi-hla me hla khaa wa-du kuvic → "nous leur donnerons deux ignames chacun"',
+    hint: 'khaa = distributif "par (n), chacun" ; wa-du = CLASS-deux (objets longs)',
+    distractors: ['roven', 'ove', 'xaa', 'ava-t'],
+    source: 'Ex. 99',
+  },
+];
+
+let gapPool = [];
+let gapCurrent = 0;
+let gapAnswered = false;
+let gapSelectedChip = null;
+
+function renderGap() {
+  if (gapCurrent >= gapPool.length) {
+    showResults();
+    return;
+  }
+  const q = gapPool[gapCurrent];
+  gapAnswered = false;
+  gapSelectedChip = null;
+
+  const isNelемwa = q.lang === 'nelемwa';
+  const langBadge = isNelемwa
+    ? `<div class="lang-badge nelемwa">🌊 Nêlêmwa authentique${q.source ? ' · ' + q.source : ''}</div>`
+    : `<div class="lang-badge fr">📝 Phrase française · Classificateurs</div>`;
+
+  const chips = shuffle([q.answer, ...q.distractors]).slice(0, 5);
+  const sentenceParts = q.template.split('___');
+  const sentenceHTML = sentenceParts[0]
+    + `<span class="gap-blank" id="gap-blank" data-answer="${q.answer}">___</span>`
+    + (sentenceParts[1] || '');
+
+  const chipsHTML = chips.map((c, i) =>
+    `<button class="suggestion-chip" id="chip-${i}" onclick="selectChip(${i}, '${c.replace(/'/g,"\\'")}', '${q.answer.replace(/'/g,"\\'")}')">
+      ${c}
+    </button>`
+  ).join('');
+
+  const html = `
+    <div class="question-card">
+      <div class="q-category" style="color:var(--accent3)">● Mode : Phrases à trou</div>
+      ${langBadge}
+      <div class="gap-sentence">${sentenceHTML}</div>
+      <div class="gap-context">
+        <span style="color:var(--muted);font-size:0.7em;letter-spacing:0.1em;text-transform:uppercase">Glose</span><br>
+        <em>${q.gloss}</em><br>
+        ${q.translation}
+      </div>
+    </div>
+    <div class="suggestions-label">Clique sur le bon mot ↓ &nbsp;<span style="font-size:0.75em;color:var(--muted)">(${q.blank_label})</span></div>
+    <div class="suggestions-pool" id="chips-pool">${chipsHTML}</div>
+    <div class="feedback" id="feedback"></div>
+    <div class="btn-row" id="btn-row" style="display:none">
+      <button class="btn btn-primary" onclick="nextGap()">Phrase suivante →</button>
+    </div>
+  `;
+  document.getElementById('game-area').innerHTML = html;
+  updateScoreboard();
+}
+
+function selectChip(idx, chosen, correctAnswer) {
+  if (gapAnswered) return;
+  gapAnswered = true;
+
+  const blank = document.getElementById('gap-blank');
+  const chip = document.getElementById('chip-' + idx);
+  const isCorrect = chosen === correctAnswer;
+
+  // Fill the blank
+  blank.textContent = chosen;
+  blank.classList.add('filled');
+
+  // Disable all chips
+  document.querySelectorAll('.suggestion-chip').forEach(c => {
+    c.disabled = true;
+    c.classList.add('used');
+  });
+
+  const q = gapPool[gapCurrent];
+  const fb = document.getElementById('feedback');
+  fb.classList.add('show');
+
+  if (isCorrect) {
+    correct++;
+    streak++;
+    if (streak > bestStreak) bestStreak = streak;
+    blank.classList.add('correct-blank');
+    chip.classList.remove('used');
+    chip.classList.add('correct-chip');
+    fb.classList.add('correct-fb');
+    fb.innerHTML = `<strong>✓ Correct !</strong>${q.hint}`;
+    showToast('Correct ! +1', 'good');
+  } else {
+    wrong++;
+    streak = 0;
+    blank.classList.add('wrong-blank');
+    chip.classList.remove('used');
+    chip.classList.add('wrong-chip');
+    // Highlight correct answer
+    document.querySelectorAll('.suggestion-chip').forEach(c => {
+      if (c.textContent.trim() === correctAnswer) {
+        c.classList.remove('used');
+        c.classList.add('correct-chip');
+      }
+    });
+    fb.classList.add('wrong-fb');
+    fb.innerHTML = `<strong>✗ Incorrect</strong>La bonne réponse : <em>${correctAnswer}</em><br>${q.hint}`;
+    showToast('Incorrect…', 'bad');
+  }
+
+  document.getElementById('score-correct').textContent = correct;
+  document.getElementById('score-wrong').textContent = wrong;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('btn-row').style.display = 'flex';
+}
+
+function nextGap() {
+  gapCurrent++;
+  current++;
+  renderGap();
+}
+
+// ─── RESULTS ─────────────────────────────────────────────────
+function showResults() {
+  document.getElementById('game-area').innerHTML = '';
+  const total = mode === 'gap' ? gapPool.length : questions.length;
+  const pct = Math.round((correct / total) * 100);
+  const emojis = pct === 100 ? '🏆' : pct >= 80 ? '🎉' : pct >= 60 ? '😊' : pct >= 40 ? '🤔' : '📚';
+  const msgs = pct === 100 ? 'Parfait ! Tu maîtrises tous les classificateurs !'
+    : pct >= 80 ? 'Excellent ! Tu as une très bonne maîtrise du sujet.'
+    : pct >= 60 ? 'Bien joué ! Continue à pratiquer pour tout mémoriser.'
+    : pct >= 40 ? 'Pas mal ! Relis la carte mentale et réessaie.'
+    : 'Courage ! Les classificateurs sont complexes, continue à étudier.';
+
+  document.getElementById('results-emoji').textContent = emojis;
+  document.getElementById('results-score').textContent = `${correct}/${total}`;
+  document.getElementById('rb-correct').textContent = correct;
+  document.getElementById('rb-wrong').textContent = wrong;
+  document.getElementById('rb-streak').textContent = bestStreak;
+  document.getElementById('results-msg').textContent = msgs;
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('progress-text').textContent = `Terminé !`;
+  document.getElementById('results').classList.add('show');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = 'toast'; }, 1800);
+}
+
+// Start
+restartGame();
+</script>
+</body>
+</html>
